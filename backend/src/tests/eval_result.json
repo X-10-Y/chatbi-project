@@ -1,0 +1,390 @@
+{
+  "overall_hit_rate": 96.67,
+  "total": 30,
+  "hit_count": 29,
+  "avg_time": 13.29,
+  "by_category": {
+    "单点": {
+      "total": 10,
+      "hit": 9
+    },
+    "趋势": {
+      "total": 5,
+      "hit": 5
+    },
+    "分布": {
+      "total": 5,
+      "hit": 5
+    },
+    "归因": {
+      "total": 5,
+      "hit": 5
+    },
+    "多跳": {
+      "total": 5,
+      "hit": 5
+    }
+  },
+  "details": [
+    {
+      "id": 1,
+      "question": "2017年Q4的销售额是多少？",
+      "category": "单点",
+      "hit": true,
+      "elapsed": 20.91,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 2,
+      "question": "哪个品类销售额最高？",
+      "category": "单点",
+      "hit": true,
+      "elapsed": 29.6,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 3,
+      "question": "哪个省的客户数量最多？",
+      "category": "单点",
+      "hit": true,
+      "elapsed": 21.11,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 4,
+      "question": "哪个大区销售额最高？",
+      "category": "单点",
+      "hit": true,
+      "elapsed": 16.8,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 5,
+      "question": "评分最高的品类是哪个？",
+      "category": "单点",
+      "hit": false,
+      "elapsed": 16.48,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 6,
+      "question": "平均支付金额最高的支付方式是什么？",
+      "category": "单点",
+      "hit": true,
+      "elapsed": 10.2,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 7,
+      "question": "哪个城市的客户数量最多？",
+      "category": "单点",
+      "hit": true,
+      "elapsed": 7.72,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 8,
+      "question": "2017年全年的总销售额是多少？",
+      "category": "单点",
+      "hit": true,
+      "elapsed": 17.66,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 9,
+      "question": "哪个大区的客户数量最多？",
+      "category": "单点",
+      "hit": true,
+      "elapsed": 9.17,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 10,
+      "question": "订单量最多的品类是哪个？",
+      "category": "单点",
+      "hit": true,
+      "elapsed": 14.84,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 11,
+      "question": "2017年每个月的销售额趋势是什么？",
+      "category": "趋势",
+      "hit": true,
+      "elapsed": 12.84,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 12,
+      "question": "2017年各季度的订单量分别是多少？",
+      "category": "趋势",
+      "hit": true,
+      "elapsed": 8.83,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 13,
+      "question": "2017年各月的订单量变化趋势如何？",
+      "category": "趋势",
+      "hit": true,
+      "elapsed": 12.37,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 14,
+      "question": "各品类的月度销售额趋势是什么？",
+      "category": "趋势",
+      "hit": true,
+      "elapsed": 13.92,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 15,
+      "question": "各大区在Q1到Q4的销售额变化趋势如何？",
+      "category": "趋势",
+      "hit": true,
+      "elapsed": 24.36,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 16,
+      "question": "各支付方式的订单占比是多少？",
+      "category": "分布",
+      "hit": true,
+      "elapsed": 16.41,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 17,
+      "question": "各大区的客户数量分布是什么？",
+      "category": "分布",
+      "hit": true,
+      "elapsed": 10.9,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 18,
+      "question": "各省的客户数量分布是什么？",
+      "category": "分布",
+      "hit": true,
+      "elapsed": 21.63,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 19,
+      "question": "各品类的销售额分布是什么？",
+      "category": "分布",
+      "hit": true,
+      "elapsed": 15.94,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 20,
+      "question": "各支付方式的平均支付金额分别是多少？",
+      "category": "分布",
+      "hit": true,
+      "elapsed": 4.88,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 21,
+      "question": "为什么Q4比Q3增长这么多？",
+      "category": "归因",
+      "hit": true,
+      "elapsed": 9.85,
+      "task_count": 4,
+      "sql_success": "4/4",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 22,
+      "question": "为什么华东大区的销售额最高？",
+      "category": "归因",
+      "hit": true,
+      "elapsed": 8.93,
+      "task_count": 5,
+      "sql_success": "5/5",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 23,
+      "question": "Q4增长主要由哪些品类驱动？",
+      "category": "归因",
+      "hit": true,
+      "elapsed": 10.5,
+      "task_count": 1,
+      "sql_success": "1/1",
+      "sql_retry": 0,
+      "critic_retry": 2,
+      "status": "成功"
+    },
+    {
+      "id": 24,
+      "question": "为什么Q4的订单量比Q3多？",
+      "category": "归因",
+      "hit": true,
+      "elapsed": 9.87,
+      "task_count": 5,
+      "sql_success": "5/5",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 25,
+      "question": "哪些因素导致了Q4销售额的增长？",
+      "category": "归因",
+      "hit": true,
+      "elapsed": 10.3,
+      "task_count": 4,
+      "sql_success": "4/4",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 26,
+      "question": "哪个品类销售额最高？它的主要客户在哪个城市？",
+      "category": "多跳",
+      "hit": true,
+      "elapsed": 8.58,
+      "task_count": 2,
+      "sql_success": "2/2",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 27,
+      "question": "哪个省的客户最多？该省的销售额是多少？",
+      "category": "多跳",
+      "hit": true,
+      "elapsed": 7.04,
+      "task_count": 2,
+      "sql_success": "2/2",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 28,
+      "question": "评分最高的品类销售额是多少？",
+      "category": "多跳",
+      "hit": true,
+      "elapsed": 11.96,
+      "task_count": 2,
+      "sql_success": "2/2",
+      "sql_retry": 0,
+      "critic_retry": 2,
+      "status": "成功"
+    },
+    {
+      "id": 29,
+      "question": "哪个大区销售额最高？该大区的主要品类是什么？",
+      "category": "多跳",
+      "hit": true,
+      "elapsed": 7.57,
+      "task_count": 2,
+      "sql_success": "2/2",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    },
+    {
+      "id": 30,
+      "question": "哪个支付方式金额最高？该支付方式的平均订单金额是多少？",
+      "category": "多跳",
+      "hit": true,
+      "elapsed": 7.5,
+      "task_count": 2,
+      "sql_success": "2/2",
+      "sql_retry": 0,
+      "critic_retry": 0,
+      "status": "成功"
+    }
+  ]
+}

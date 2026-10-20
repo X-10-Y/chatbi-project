@@ -1,0 +1,23 @@
+# 虚拟环境
+.venv/
+venv/
+
+# 敏感配置（必须忽略）
+.env
+*.env
+
+# 数据库和向量库文件
+*.db
+*.sqlite3
+chroma_db/
+data/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+
+# 日志和临时文件
+*.log
+.DS_Store
+.idea/
+*.iml
