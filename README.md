@@ -1,25 +1,25 @@
-# 🚀 ChatBI - 多角色 Agent 数据分析工作流
+# 🤖 ChatBI - 多角色 Agent 数据分析工作流
 
-基于大语言模型（LLM）与多智能体（Multi-Agent）架构的自然语言数据分析系统。用户只需使用自然语言提问，系统即可自动完成任务拆解、NL2SQL、数据质检、归因分析与报告生成。
+基于大模型（LLM）与多智能体（Multi-Agent）架构的自然语言数据分析系统。用户只需使用自然语言提问，系统即可自动完成任务拆解、NL2SQL、数据质检、归因分析与报告生成。
 
 ## 🌟 核心特性
 
-- **多角色 Agent 编排**：采用 Planner / Executor / Critic / Analyst / Reporter 五角色协同，职责分离，互相校验。
-- **自研 DAG 依赖调度**：按任务 `depends_on` 进行拓扑排序，同层任务并行执行，层间串行，大幅提升分析效率。
-- **两级自我纠错机制**：语法重试（基于数据库原生报错反馈）+ 语义重试（基于 Critic 质检反馈），极大提升 SQL 生成准确率。
-- **Schema 路由与 Token 优化**：在生成 SQL 前进行元数据召回，仅注入相关表结构，减少上下文长度并提高准确率。
-- **Celery 真异步与状态持久化**：Web 进程与 Worker 进程分离，任务状态持久化至 Redis，重启不丢失。
-- **多轮对话与查询改写**：基于 Redis 存储 Session 历史，仅在检测到指代词时触发大模型 Query Rewriting，节省 Token 成本。
-- **高频查询 Redis 缓存**：相同问题秒级返回（实测从 9s 降至 0.1s）。
-- **SSE 流式输出**：子任务完成即推流，首字延迟从 8s 降至 1s，提供打字机式的交互体验。
+*   **多角色 Agent 编排**：采用 Planner / Executor / Critic / Analyst / Reporter 五角色协同，职责分离，独立迭代。
+*   **自研 DAG 依赖调度**：按任务 `depends_on` 进行拓扑排序，同层任务并行执行，层间串行，大幅提升分析效率。
+*   **两级自我纠错机制**：语法重试（基于数据库报错）+ 语义重试（基于 Critic 质检反馈），极大提升 SQL 生成准确率。
+*   **Schema 路由与 Token 优化**：在生成 SQL 前进行元数据召回，仅注入相关表结构，减少 Token 消耗并提高准确率。
+*   **Celery 真异步与状态持久化**：Web 进程与 Worker 进程分离，任务状态存入 Redis，重启不丢失。
+*   **多轮对话与查询改写**：基于 Redis 存储 Session 历史，仅在检测到指代词时触发大模型 Query Rewriting，节省成本。
+*   **高频查询 Redis 缓存**：相同问题秒级返回（实测从 9s 降至 0.1s）。
+*   **SSE 流式输出**：子任务完成即推流，首字延迟从 8s 降至 1s，提供打字机式的交互体验。
 
 ## 🛠️ 技术栈
 
-- **后端框架**：Python, FastAPI, Pydantic
-- **大模型编排**：LangChain, 自研 DAG 调度
-- **数据库与中间件**：MySQL, SQLAlchemy, Redis (Cache & Session)
-- **异步任务队列**：Celery
-- **大模型 API**：DeepSeek API
+*   **后端框架**：Python, FastAPI, Pydantic, Uvicorn
+*   **大模型编排**：LangChain, 自研 DAG 调度
+*   **数据库与中间件**：MySQL, SQLAlchemy, Redis (Cache & Session)
+*   **异步任务队列**：Celery, Redis Broker
+*   **大模型 API**：DeepSeek API
 
 ## 📂 项目结构
 
@@ -27,7 +27,7 @@
 ├── backend/
 │   ├── src/
 │   │   ├── agents/          # 五大 Agent 实现 (Planner, Executor, Critic 等)
-│   │   ├── tools/           # 工具库 (缓存、SQL执行器、数据加载)
+│   │   ├── tools/           # 工具库 (缓存、数据库执行器、数据加载)
 │   │   ├── tests/           # 评估脚本与测试数据集
 │   │   ├── config.py        # 配置管理 (基于环境变量)
 │   │   ├── main.py          # FastAPI 服务入口
