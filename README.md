@@ -35,4 +35,33 @@
 ├── frontend/                # Streamlit 前端测试页面
 ├── requirements.txt         # 依赖清单
 └── .gitignore
+## 🚀 快速启动
 
+### 1. 克隆项目
+打开终端，执行以下命令克隆代码：
+git clone https://github.com/X-10-Y/chatbi-project.git
+cd chatbi-project
+
+### 2. 安装依赖
+执行以下命令安装所需依赖：
+pip install -r requirements.txt
+
+### 3. 配置环境变量
+在项目根目录创建一个名为 `.env` 的文件，并填入以下配置：
+DEEPSEEK_API_KEY=你的_API_KEY
+MYSQL_URL=mysql+pymysql://root:你的密码@localhost:3306/chatbi?charset=utf8mb4
+
+### 4. 启动服务
+首先启动 Web 服务（在 backend/src 目录下执行）：
+cd backend/src
+python main.py
+
+然后新开一个终端，启动 Celery Worker（Windows 环境需加 --pool=solo）：
+cd backend/src
+celery -A celery_app worker --loglevel=info --pool=solo
+
+## 📊 评估结果
+
+- 30 条测试问题，整体准确率 **96.7%**。
+- 归因类与多跳类问题准确率 **100%**。
+- Redis 缓存命中后响应时间 **< 0.1s**。
