@@ -10,3 +10,9 @@ streamlit
 requests
 pydantic
 kagglehub
+sqlalchemy
+pymysql
+openpyxl
+xlrd
+celery
+redis
