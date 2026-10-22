@@ -168,6 +168,27 @@ def execute(question: str, max_sql_retry: int = None, max_critic_retry: int = No
         logger.info(f"[Executor] Critic 不通过，第 {critic_retry} 次语义重写")
         sql = generate_sql_with_critic_feedback(question, sql, check.get("reason", ""))
         result = run_sql(sql)
+        if not result["success"]:
+            # 语义重写可能引入语法/字段错误，先走报错反馈修复，避免直接返回空结果
+            fix_retry = 0
+            while not result["success"] and fix_retry < max_sql_retry:
+                fix_retry += 1
+                logger.info(f"[Executor] 语义重写后执行失败，报错修复第 {fix_retry} 次")
+                sql = generate_sql_with_feedback(question, sql, result["error"])
+                result = run_sql(sql)
+            sql_retry += fix_retry
+            if not result["success"]:
+                return {
+                    "question": question,
+                    "sql": sql,
+                    "success": False,
+                    "data": [],
+                    "columns": [],
+                    "error": result["error"],
+                    "sql_retry": sql_retry,
+                    "critic_retry": critic_retry,
+                    "warning": "语义重写后的 SQL 执行失败，已尝试修复但仍未成功"
+                }
     warning = ""
     if critic_retry >= max_critic_retry:
         warning = "系统对本次结果质量存疑，建议核实后使用"
