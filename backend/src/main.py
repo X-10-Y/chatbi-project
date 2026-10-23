@@ -53,10 +53,11 @@ class StatusResponse(BaseModel):
 @app.post("/chatbi", response_model=AskResponse)
 def chatbi_sync(req: AskRequest):
     """同步分析：支持多轮对话"""
-    logger.info(f"[API] 同步请求: {req.question} | session: {req.session_id}")
+    trace_id = uuid.uuid4().hex[:8]
+    logger.info(f"[API] 同步请求 [trace={trace_id}]: {req.question} | session: {req.session_id}")
     start = time.time()
     history = get_history(req.session_id) if req.session_id else []
-    effective_question = rewrite_query(req.question, history)
+    effective_question = rewrite_query(req.question, history, trace_id=trace_id)
     cached = get_cached(effective_question)
     if cached:
         cached["elapsed"] = round(time.time() - start, 2)
@@ -65,9 +66,9 @@ def chatbi_sync(req: AskRequest):
             append_turn(req.session_id, req.question, effective_question, cached["analysis"])
         return AskResponse(**cached)
     try:
-        result = run(effective_question)
+        result = run(effective_question, trace_id=trace_id)
     except Exception as e:
-        logger.error(f"[API] 分析失败: {e}")
+        logger.error(f"[API] 分析失败 [trace={trace_id}]: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     elapsed = time.time() - start
     response_data = {
@@ -84,9 +85,10 @@ def chatbi_sync(req: AskRequest):
 # ==================== 异步接口 ====================
 @app.post("/chatbi/stream")
 def chatbi_stream(req: AskRequest):
-    logger.info(f"[API] 流式请求: {req.question} | session: {req.session_id}")
+    trace_id = uuid.uuid4().hex[:8]
+    logger.info(f"[API] 流式请求 [trace={trace_id}]: {req.question} | session: {req.session_id}")
     history = get_history(req.session_id) if req.session_id else []
-    effective_question = rewrite_query(req.question, history)
+    effective_question = rewrite_query(req.question, history, trace_id=trace_id)
     cached = get_cached(effective_question)
     if cached:
         if req.session_id:
@@ -97,7 +99,7 @@ def chatbi_stream(req: AskRequest):
         return StreamingResponse(_cached_stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
     def _stream_with_session():
         analysis_text = ""
-        for event in run_stream(effective_question):
+        for event in run_stream(effective_question, trace_id=trace_id):
             # 从 analysis_done 事件里提取答案，用于存历史
             if '"type": "analysis_done"' in event or '"type":"analysis_done"' in event:
                 try:

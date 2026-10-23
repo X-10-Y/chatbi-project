@@ -6,7 +6,7 @@ from typing import List
 from pydantic import BaseModel, ValidationError
 from openai import OpenAI
 from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY
-from logger import logger, log_tokens
+from logger import logger, log_tokens, fmt_trace
 from tools.sql_runner import get_db_schema_light
 # ==================== Pydantic 模型 ====================
 class Task(BaseModel):
@@ -28,7 +28,7 @@ def clean_json(raw: str) -> str:
         raw = raw.split("```")[1].split("```")[0].strip()
     return raw
 # ==================== 核心：任务拆解 ====================
-def plan(question: str) -> Plan:
+def plan(question: str, trace_id: str = None) -> Plan:
     """
     让 LLM 判断问题复杂度，复杂问题拆成多个子任务
     """
@@ -97,16 +97,16 @@ def plan(question: str) -> Plan:
         temperature=0.1,
         max_tokens=800
     )
-    log_tokens("Planner", resp)
+    log_tokens("Planner", resp, trace_id=trace_id)
     raw = resp.choices[0].message.content
-    logger.info(f"[Planner] LLM 原始输出: {raw[:300]}")
+    logger.info(f"{fmt_trace(trace_id)}[Planner] LLM 原始输出: {raw[:300]}")
     cleaned = clean_json(raw)
     try:
         plan_result = Plan.model_validate_json(cleaned)
-        logger.info(f"[Planner] 拆解完成: is_complex={plan_result.is_complex}, tasks={len(plan_result.tasks)}")
+        logger.info(f"{fmt_trace(trace_id)}[Planner] 拆解完成: is_complex={plan_result.is_complex}, tasks={len(plan_result.tasks)}")
         return plan_result
     except Exception as e:
-        logger.error(f"[Planner] 解析失败: {e}")
+        logger.error(f"{fmt_trace(trace_id)}[Planner] 解析失败: {e}")
         return Plan(
             is_complex=False,
             reason="解析失败，降级为单任务",

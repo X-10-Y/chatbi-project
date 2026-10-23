@@ -2,7 +2,7 @@
 Reporter Agent：报告组装
 把 Analyst 结论 + 各任务数据组装成前端可渲染的 JSON
 """
-from logger import logger
+from logger import logger, fmt_trace
 # ==================== 字段识别 ====================
 # 时间字段关键词
 TIME_KEYWORDS = ["month", "date", "year", "quarter", "week", "time"]
@@ -158,7 +158,7 @@ def build_chart_configs(task_id: int, description: str, data: list, columns: lis
         })
     return charts
 # =================== 报告组装 ====================
-def generate_report(question: str, analysis: str, results: list, warning: str = "") -> dict:
+def generate_report(question: str, analysis: str, results: list, warning: str = "", trace_id: str = None) -> dict:
     """
     组装完整报告
     """
@@ -190,5 +190,5 @@ def generate_report(question: str, analysis: str, results: list, warning: str = 
         "tables": tables,
         "task_count": len(results)
     }
-    logger.info(f"[Reporter] 报告生成完成: {len(charts)} 个图表, {len(tables)} 个表格")
+    logger.info(f"{fmt_trace(trace_id)}[Reporter] 报告生成完成: {len(charts)} 个图表, {len(tables)} 个表格")
     return report

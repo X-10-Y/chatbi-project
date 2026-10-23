@@ -6,11 +6,11 @@ import json
 from pydantic import BaseModel
 from openai import OpenAI
 from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY
-from logger import logger, log_tokens
+from logger import logger, log_tokens, fmt_trace
 class CriticResult(BaseModel):
     pass_: bool = True
     reason: str = ""
-def check_result(question: str, sql: str, data: list, columns: list) -> dict:
+def check_result(question: str, sql: str, data: list, columns: list, trace_id: str = None) -> dict:
     """检查 SQL 结果是否能回答用户问题"""
     # 快速检查：空结果
     if not data:
@@ -45,7 +45,7 @@ def check_result(question: str, sql: str, data: list, columns: list) -> dict:
         temperature=0.1,
         max_tokens=200
     )
-    log_tokens("Critic", resp)
+    log_tokens("Critic", resp, trace_id=trace_id)
     raw = resp.choices[0].message.content.strip()
     # 清洗 markdown
     if "```json" in raw:
@@ -58,8 +58,8 @@ def check_result(question: str, sql: str, data: list, columns: list) -> dict:
             pass_=raw_dict.get("pass", True),
             reason=raw_dict.get("reason", "")
         )
-        logger.info(f"[Critic] 检查结果: pass={validated.pass_}, reason={validated.reason[:50]}")
+        logger.info(f"{fmt_trace(trace_id)}[Critic] 检查结果: pass={validated.pass_}, reason={validated.reason[:50]}")
         return {"pass": validated.pass_, "reason": validated.reason}
     except Exception as e:
-        logger.error(f"[Critic] 解析失败: {e}")
+        logger.error(f"{fmt_trace(trace_id)}[Critic] 解析失败: {e}")
         return {"pass": True, "reason": ""}

@@ -2,7 +2,7 @@
 Executor Agent：生成 SQL 并执行
 """
 from openai import OpenAI
-from logger import logger, log_tokens
+from logger import logger, log_tokens, fmt_trace
 from tools.sql_runner import run_sql, get_db_schema
 from agents.critic import check_result
 from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY, MAX_SQL_RETRY, MAX_CRITIC_RETRY
@@ -38,7 +38,7 @@ def build_business_rules() -> str:
     ]
     return "\n".join(rules)
 # ==================== 生成 SQL ====================
-def generate_sql(question: str, context: str = "") -> str:
+def generate_sql(question: str, context: str = "", trace_id: str = None) -> str:
     from agents.schema_router import select_tables
     from tools.sql_runner import get_db_schema_for_tables
     tables = select_tables(question)
@@ -64,14 +64,14 @@ SQL："""
         temperature=0.1,
         max_tokens=1500
     )
-    log_tokens("Executor-生成", resp)
+    log_tokens("Executor-生成", resp, trace_id=trace_id)
     raw = resp.choices[0].message.content
-    logger.info(f"[Executor] LLM 原始输出: {raw[:200]}")
+    logger.info(f"{fmt_trace(trace_id)}[Executor] LLM 原始输出: {raw[:200]}")
     sql = clean_sql(raw)
-    logger.info(f"[Executor] 清洗后 SQL: {sql}")
+    logger.info(f"{fmt_trace(trace_id)}[Executor] 清洗后 SQL: {sql}")
     return sql
 # ==================== 带报错反馈重写 ====================
-def generate_sql_with_feedback(question: str, failed_sql: str, error: str) -> str:
+def generate_sql_with_feedback(question: str, failed_sql: str, error: str, trace_id: str = None) -> str:
     schema = get_db_schema()
     rules = build_business_rules()
     prompt = f"""你是一个 SQL 专家。上一次生成的 SQL 执行报错了，请根据报错信息重写。
@@ -92,14 +92,14 @@ def generate_sql_with_feedback(question: str, failed_sql: str, error: str) -> st
         temperature=0.1,
         max_tokens=1500
     )
-    log_tokens("Executor-报错重写", resp)
+    log_tokens("Executor-报错重写", resp, trace_id=trace_id)
     raw = resp.choices[0].message.content
-    logger.info(f"[Executor] 重写原始输出: {raw[:200]}")
+    logger.info(f"{fmt_trace(trace_id)}[Executor] 重写原始输出: {raw[:200]}")
     sql = clean_sql(raw)
-    logger.info(f"[Executor] 重写后 SQL: {sql}")
+    logger.info(f"{fmt_trace(trace_id)}[Executor] 重写后 SQL: {sql}")
     return sql
 # ==================== 带 Critic 反馈重写 ====================
-def generate_sql_with_critic_feedback(question: str, failed_sql: str, critic_reason: str) -> str:
+def generate_sql_with_critic_feedback(question: str, failed_sql: str, critic_reason: str, trace_id: str = None) -> str:
     schema = get_db_schema()
     rules = build_business_rules()
     prompt = f"""你是一个 SQL 专家。上一次生成的 SQL 执行成功了，但质检员认为结果不能回答用户问题，请重写。
@@ -120,29 +120,29 @@ def generate_sql_with_critic_feedback(question: str, failed_sql: str, critic_rea
         temperature=0.1,
         max_tokens=1500
     )
-    log_tokens("Executor-Critic重写", resp)
+    log_tokens("Executor-Critic重写", resp, trace_id=trace_id)
     raw = resp.choices[0].message.content
-    logger.info(f"[Executor] Critic反馈重写原始输出: {raw[:200]}")
+    logger.info(f"{fmt_trace(trace_id)}[Executor] Critic反馈重写原始输出: {raw[:200]}")
     sql = clean_sql(raw)
-    logger.info(f"[Executor] Critic反馈重写后 SQL: {sql}")
+    logger.info(f"{fmt_trace(trace_id)}[Executor] Critic反馈重写后 SQL: {sql}")
     return sql
 # ==================== 主流程 ====================
 def execute(question: str, max_sql_retry: int = None, max_critic_retry: int = None,
-            task_description: str = None, context: str = "") -> dict:
+            task_description: str = None, context: str = "", trace_id: str = None) -> dict:
     # 使用配置的默认值
     if max_sql_retry is None:
         max_sql_retry = MAX_SQL_RETRY
     if max_critic_retry is None:
         max_critic_retry = MAX_CRITIC_RETRY
     # 阶段1：生成 + 语法重试
-    sql = generate_sql(question, context=context)
-    result = run_sql(sql)
+    sql = generate_sql(question, context=context, trace_id=trace_id)
+    result = run_sql(sql, trace_id=trace_id)
     sql_retry = 0
     while not result["success"] and sql_retry < max_sql_retry:
         sql_retry += 1
-        logger.info(f"[Executor] SQL 报错，第 {sql_retry} 次重试")
-        sql = generate_sql_with_feedback(question, sql, result["error"])
-        result = run_sql(sql)
+        logger.info(f"{fmt_trace(trace_id)}[Executor] SQL 报错，第 {sql_retry} 次重试")
+        sql = generate_sql_with_feedback(question, sql, result["error"], trace_id=trace_id)
+        result = run_sql(sql, trace_id=trace_id)
     if not result["success"]:
         return {
             "question": question,
@@ -158,24 +158,24 @@ def execute(question: str, max_sql_retry: int = None, max_critic_retry: int = No
     # 阶段2：Critic 检查 + 语义重试
     critic_retry = 0
     while critic_retry < max_critic_retry:
-        check = check_result(task_description or question, sql, result["data"], result["columns"])
+        check = check_result(task_description or question, sql, result["data"], result["columns"], trace_id=trace_id)
         if check is None:
-            logger.warning("[Executor] Critic 返回 None，默认通过")
+            logger.warning(f"{fmt_trace(trace_id)}[Executor] Critic 返回 None，默认通过")
             break
         if check["pass"]:
             break
         critic_retry += 1
-        logger.info(f"[Executor] Critic 不通过，第 {critic_retry} 次语义重写")
-        sql = generate_sql_with_critic_feedback(question, sql, check.get("reason", ""))
-        result = run_sql(sql)
+        logger.info(f"{fmt_trace(trace_id)}[Executor] Critic 不通过，第 {critic_retry} 次语义重写")
+        sql = generate_sql_with_critic_feedback(question, sql, check.get("reason", ""), trace_id=trace_id)
+        result = run_sql(sql, trace_id=trace_id)
         if not result["success"]:
             # 语义重写可能引入语法/字段错误，先走报错反馈修复，避免直接返回空结果
             fix_retry = 0
             while not result["success"] and fix_retry < max_sql_retry:
                 fix_retry += 1
-                logger.info(f"[Executor] 语义重写后执行失败，报错修复第 {fix_retry} 次")
-                sql = generate_sql_with_feedback(question, sql, result["error"])
-                result = run_sql(sql)
+                logger.info(f"{fmt_trace(trace_id)}[Executor] 语义重写后执行失败，报错修复第 {fix_retry} 次")
+                sql = generate_sql_with_feedback(question, sql, result["error"], trace_id=trace_id)
+                result = run_sql(sql, trace_id=trace_id)
             sql_retry += fix_retry
             if not result["success"]:
                 return {

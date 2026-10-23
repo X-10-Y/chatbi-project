@@ -5,7 +5,7 @@
 """
 from openai import OpenAI
 from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY
-from logger import logger, log_tokens
+from logger import logger, log_tokens, fmt_trace
 REFERENCE_WORDS = [
     "那", "这个", "那个", "它", "该", "上述", "前面", "刚才",
     "再", "还有", "呢", "那么", "然后", "接着", "换", "改成",
@@ -13,7 +13,7 @@ REFERENCE_WORDS = [
 def _has_reference(question: str) -> bool:
     """检测问题里有没有指代词"""
     return any(w in question for w in REFERENCE_WORDS)
-def rewrite_query(question: str, history: list) -> str:
+def rewrite_query(question: str, history: list, trace_id: str = None) -> str:
     """
     把问题改写成完整独立的问句
     - 没有历史 → 直接返回原问题
@@ -23,7 +23,7 @@ def rewrite_query(question: str, history: list) -> str:
     if not history:
         return question
     if not _has_reference(question):
-        logger.info(f"[Rewriter] 无指代词，跳过改写: {question}")
+        logger.info(f"{fmt_trace(trace_id)}[Rewriter] 无指代词，跳过改写: {question}")
         return question
     history_text = "\n".join([
         f"用户：{h.get('question', '')}\n助手：{h.get('answer', '')[:100]}..."
@@ -47,8 +47,8 @@ def rewrite_query(question: str, history: list) -> str:
         temperature=0.1,
         max_tokens=100
     )
-    log_tokens("Rewriter", resp)
+    log_tokens("Rewriter", resp, trace_id=trace_id)
     rewritten = resp.choices[0].message.content.strip()
-    logger.info(f"[Rewriter] 原问题: {question}")
-    logger.info(f"[Rewriter] 改写后: {rewritten}")
+    logger.info(f"{fmt_trace(trace_id)}[Rewriter] 原问题: {question}")
+    logger.info(f"{fmt_trace(trace_id)}[Rewriter] 改写后: {rewritten}")
     return rewritten or question

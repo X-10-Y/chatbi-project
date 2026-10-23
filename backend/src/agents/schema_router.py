@@ -5,8 +5,8 @@ Schema Router：从所有表里选出和问题相关的表
 from openai import OpenAI
 from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY
 from tools.sql_runner import get_table_summaries
-from logger import logger, log_tokens
-def select_tables(question: str) -> list:
+from logger import logger, log_tokens, fmt_trace
+def select_tables(question: str, trace_id: str = None) -> list:
     """让 LLM 从所有表里选出相关表，返回表名列表"""
     summaries = get_table_summaries()
     prompt = f"""你是一个数据库专家。根据用户问题，从下面的表里选出需要用到的表。
@@ -27,10 +27,10 @@ def select_tables(question: str) -> list:
         temperature=0.1,
         max_tokens=200
     )
-    log_tokens("SchemaRouter", resp)
+    log_tokens("SchemaRouter", resp, trace_id=trace_id)
     raw = resp.choices[0].message.content.strip()
     # 清洗：去掉可能的 markdown 或换行
     raw = raw.replace("\n", "").replace("`", "")
     tables = [t.strip() for t in raw.split(",") if t.strip()]
-    logger.info(f"[SchemaRouter] 选出表: {tables}")
+    logger.info(f"{fmt_trace(trace_id)}[SchemaRouter] 选出表: {tables}")
     return tables

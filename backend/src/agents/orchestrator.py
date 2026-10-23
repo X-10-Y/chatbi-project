@@ -11,7 +11,7 @@ from agents.planner import plan
 from agents.executor import execute
 from agents.analyst import analyze
 from agents.reporter import generate_report
-from logger import logger, log_tokens
+from logger import logger, log_tokens, fmt_trace
 MAX_CONCURRENT = 5
 def build_layers(tasks: list) -> list:
     """
@@ -36,7 +36,7 @@ def build_layers(tasks: list) -> list:
             remaining.discard(task.id)
     return layers
 # ==================== 综合型任务：文本归纳 ====================
-def synthesize(task, dep_results: dict) -> dict:
+def synthesize(task, dep_results: dict, trace_id: str = None) -> dict:
     """
     综合型任务：直接文本综合，不走 SQL
     把前置任务的数据丢给 LLM，让它归纳结论
@@ -51,7 +51,7 @@ def synthesize(task, dep_results: dict) -> dict:
                 f"{json.dumps(data[:20], ensure_ascii=False, indent=2)}"
             )
     if not context_parts:
-        logger.warning(f"[Orchestrator] 任务 {task.id} 没有可用的前置结果")
+        logger.warning(f"{fmt_trace(trace_id)}[Orchestrator] 任务 {task.id} 没有可用的前置结果")
         return {
             "task_id": task.id,
             "description": task.description,
@@ -85,9 +85,9 @@ def synthesize(task, dep_results: dict) -> dict:
         temperature=0.3,
         max_tokens=800
     )
-    log_tokens("综合归纳", resp)
+    log_tokens("综合归纳", resp, trace_id=trace_id)
     analysis = resp.choices[0].message.content.strip()
-    logger.info(f"[Orchestrator] 任务 {task.id} 文本综合完成，长度 {len(analysis)} 字")
+    logger.info(f"{fmt_trace(trace_id)}[Orchestrator] 任务 {task.id} 文本综合完成，长度 {len(analysis)} 字")
     return {
         "task_id": task.id,
         "description": task.description,
@@ -103,7 +103,7 @@ def synthesize(task, dep_results: dict) -> dict:
         "critic_retry": 0
     }
 # ==================== 筛选型任务：SQL 流程 ====================
-def run_sql_task(task, dep_results: dict) -> dict:
+def run_sql_task(task, dep_results: dict, trace_id: str = None) -> dict:
     """筛选型任务：走 SQL 生成 → 执行 → Critic 校验"""
     # 从前置结果提取"已知事实"
     facts_text = ""
@@ -120,7 +120,7 @@ def run_sql_task(task, dep_results: dict) -> dict:
                             break
         if facts:
             facts_text = "\n".join(facts)
-            logger.info(f"[Orchestrator] 任务 {task.id} 注入 {len(facts)} 个已知事实: {facts_text}")
+            logger.info(f"{fmt_trace(trace_id)}[Orchestrator] 任务 {task.id} 注入 {len(facts)} 个已知事实: {facts_text}")
     if facts_text:
         enriched_question = f"""{task.description}
 【已知事实（必须直接使用，绝对禁止写子查询重新计算）】
@@ -131,7 +131,7 @@ def run_sql_task(task, dep_results: dict) -> dict:
     else:
         enriched_question = task.description
         critic_input = task.description
-    result = execute(enriched_question, task_description=critic_input, context="")
+    result = execute(enriched_question, task_description=critic_input, context="", trace_id=trace_id)
     return {
         "task_id": task.id,
         "description": task.description,
@@ -147,32 +147,33 @@ def run_sql_task(task, dep_results: dict) -> dict:
         "critic_retry": result.get("critic_retry", 0)
     }
 # ==================== 统一入口 ====================
-def run_one_task(task, dep_results: dict = None) -> dict:
+def run_one_task(task, dep_results: dict = None, trace_id: str = None) -> dict:
     """执行单个任务：根据 Planner 标注的 task_type 分流"""
-    logger.info(f"[Orchestrator] 执行任务 {task.id}: {task.description}")
+    logger.info(f"{fmt_trace(trace_id)}[Orchestrator] 执行任务 {task.id}: {task.description}")
     if getattr(task, "task_type", "sql") == "aggregate":
-        logger.info(f"[Orchestrator] 任务 {task.id} 是综合型任务，走文本归纳")
-        return synthesize(task, dep_results or {})
+        logger.info(f"{fmt_trace(trace_id)}[Orchestrator] 任务 {task.id} 是综合型任务，走文本归纳")
+        return synthesize(task, dep_results or {}, trace_id=trace_id)
     else:
-        return run_sql_task(task, dep_results or {})
+        return run_sql_task(task, dep_results or {}, trace_id=trace_id)
 # ==================== 主流程 ====================
-def run(question: str) -> dict:
+def run(question: str, trace_id: str = None) -> dict:
     """完整流程：拆解 → 分层执行 → 归因 → 报告"""
-    logger.info(f"[Orchestrator] 收到问题: {question}")
-    plan_result = plan(question)
-    logger.info(f"[Orchestrator] 拆解为 {len(plan_result.tasks)} 个任务")
+    logger.info(f"{fmt_trace(trace_id)}[Orchestrator] 收到问题: {question}")
+    plan_result = plan(question, trace_id=trace_id)
+    logger.info(f"{fmt_trace(trace_id)}[Orchestrator] 拆解为 {len(plan_result.tasks)} 个任务")
     layers = build_layers(plan_result.tasks)
-    logger.info(f"[Orchestrator] 分成 {len(layers)} 层执行")
+    logger.info(f"{fmt_trace(trace_id)}[Orchestrator] 分成 {len(layers)} 层执行")
     results = []
     completed_results = {}
     for layer_idx, layer in enumerate(layers):
-        logger.info(f"[Orchestrator] 执行第 {layer_idx + 1} 层，共 {len(layer)} 个任务")
+        logger.info(f"{fmt_trace(trace_id)}[Orchestrator] 执行第 {layer_idx + 1} 层，共 {len(layer)} 个任务")
         with ThreadPoolExecutor(max_workers=MAX_CONCURRENT) as executor:
             futures = {
                 executor.submit(
                     run_one_task,
                     task,
-                    {dep: completed_results.get(dep) for dep in task.depends_on}
+                    {dep: completed_results.get(dep) for dep in task.depends_on},
+                    trace_id
                 ): task
                 for task in layer
             }
@@ -183,7 +184,7 @@ def run(question: str) -> dict:
                     completed_results[result["task_id"]] = result
                 except Exception as e:
                     task = futures[future]
-                    logger.error(f"[Orchestrator] 任务 {task.id} 失败: {e}")
+                    logger.error(f"{fmt_trace(trace_id)}[Orchestrator] 任务 {task.id} 失败: {e}")
                     error_result = {
                         "task_id": task.id,
                         "description": task.description,
@@ -194,15 +195,16 @@ def run(question: str) -> dict:
                     completed_results[task.id] = error_result
     results.sort(key=lambda x: x["task_id"])
     # 调 Analyst
-    logger.info("[Orchestrator] 调 Analyst 做归因分析")
-    analyst_result = analyze(question, plan_result.reason, results)
+    logger.info(f"{fmt_trace(trace_id)}[Orchestrator] 调 Analyst 做归因分析")
+    analyst_result = analyze(question, plan_result.reason, results, trace_id=trace_id)
     # 调 Reporter
-    logger.info("[Orchestrator] 调 Reporter 生成报告")
+    logger.info(f"{fmt_trace(trace_id)}[Orchestrator] 调 Reporter 生成报告")
     report = generate_report(
         question=question,
         analysis=analyst_result["analysis"],
         results=results,
-        warning=analyst_result["warning"]
+        warning=analyst_result["warning"],
+        trace_id=trace_id
     )
     return {
         "question": question,
@@ -219,11 +221,11 @@ def sse_event(event_type: str, data: dict) -> str:
     """格式化一条 SSE 事件"""
     payload = {"type": event_type, **data}
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-def run_stream(question: str):
+def run_stream(question: str, trace_id: str = None):
     """流式版本：每完成一个任务 yield 一个事件"""
-    logger.info(f"[Orchestrator-Stream] 收到问题: {question}")
+    logger.info(f"{fmt_trace(trace_id)}[Orchestrator-Stream] 收到问题: {question}")
     yield sse_event("plan_start", {"question": question})
-    plan_result = plan(question)
+    plan_result = plan(question, trace_id=trace_id)
     yield sse_event("plan_done", {
         "is_complex": plan_result.is_complex,
         "reason": plan_result.reason,
@@ -249,7 +251,8 @@ def run_stream(question: str):
             futures = {
                 executor.submit(
                     run_one_task, task,
-                    {dep: completed_results.get(dep) for dep in task.depends_on}
+                    {dep: completed_results.get(dep) for dep in task.depends_on},
+                    trace_id
                 ): task
                 for task in layer
             }
@@ -268,7 +271,7 @@ def run_stream(question: str):
                         "data_preview": result.get("data", [])[:5]
                     })
                 except Exception as e:
-                    logger.error(f"[Orchestrator-Stream] 任务 {task.id} 失败: {e}")
+                    logger.error(f"{fmt_trace(trace_id)}[Orchestrator-Stream] 任务 {task.id} 失败: {e}")
                     error_result = {
                         "task_id": task.id,
                         "description": task.description,
@@ -283,7 +286,7 @@ def run_stream(question: str):
                     })
     results.sort(key=lambda x: x["task_id"])
     yield sse_event("analysis_start", {})
-    analyst_result = analyze(question, plan_result.reason, results)
+    analyst_result = analyze(question, plan_result.reason, results, trace_id=trace_id)
     yield sse_event("analysis_done", {
         "analysis": analyst_result["analysis"],
         "warning": analyst_result["warning"]
@@ -293,7 +296,8 @@ def run_stream(question: str):
         question=question,
         analysis=analyst_result["analysis"],
         results=results,
-        warning=analyst_result["warning"]
+        warning=analyst_result["warning"],
+        trace_id=trace_id
     )
     yield sse_event("report_done", {"report": report})
 

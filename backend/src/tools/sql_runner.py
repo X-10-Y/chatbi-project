@@ -5,7 +5,7 @@ SQL 执行器 + 安全防火墙
 import re
 from sqlalchemy import create_engine, text, inspect
 from config import DB_PATH, MYSQL_URL, DB_TYPE, MAX_RESULT_ROWS
-from logger import logger
+from logger import logger, fmt_trace
 # ==================== 引擎初始化 ====================
 if DB_TYPE == "mysql":
     _engine = create_engine(MYSQL_URL, pool_size=5, max_overflow=10, pool_pre_ping=True)
@@ -62,19 +62,27 @@ def is_safe_sql(sql: str):
         return False, "只允许单条 SQL 语句"
     return True, ""
 # ==================== 统一执行入口 ====================
-def run_sql(sql: str, max_rows: int = None) -> dict:
-    """执行只读 SQL，最多返回 max_rows 行（在数据库侧用 LIMIT 限制，避免全量拉取）"""
+def run_sql(sql: str, max_rows: int = None, trace_id: str = None) -> dict:
+    """执行只读 SQL，最多返回 max_rows 行（在数据库侧用 LIMIT 限制，避免全量拉取）
+    MySQL 下额外设置 statement timeout（毫秒），避免慢查询长期占用连接"""
     if max_rows is None:
         max_rows = MAX_RESULT_ROWS
     safe, reason = is_safe_sql(sql)
     if not safe:
-        logger.warning(f"[SQL] 被防火墙拦截: {reason}")
+        logger.warning(f"{fmt_trace(trace_id)}[SQL] 被防火墙拦截: {reason}")
         return {"success": False, "error": f"SQL 被拦截: {reason}", "data": [], "columns": [], "truncated": False}
     query = sql.strip().rstrip(";").strip()
     limited = f"SELECT * FROM ({query}) AS _chatbi_result LIMIT {max_rows + 1}"
     try:
-        logger.info(f"[SQL] 执行: {query[:200]}")
+        logger.info(f"{fmt_trace(trace_id)}[SQL] 执行: {query[:200]}")
         with _engine.connect() as conn:
+            # MySQL 下设置会话级 statement timeout（毫秒），防止慢查询占满连接池
+            # sqlite 不支持，直接跳过；MySQL 5.7.4+ 才支持 max_execution_time，老版本静默失败
+            if DB_TYPE == "mysql":
+                try:
+                    conn.execute(text("SET SESSION max_execution_time = 15000"))
+                except Exception as _e:
+                    logger.debug(f"{fmt_trace(trace_id)}[SQL] statement_timeout 设置失败（可忽略）: {_e}")
             try:
                 result = conn.execute(text(limited))
             except Exception:
@@ -84,10 +92,10 @@ def run_sql(sql: str, max_rows: int = None) -> dict:
             rows = result.fetchmany(max_rows + 1)
         truncated = len(rows) > max_rows
         data = [dict(zip(columns, row)) for row in rows[:max_rows]]
-        logger.info(f"[SQL] 成功，返回 {len(data)} 行（截断={truncated}）")
+        logger.info(f"{fmt_trace(trace_id)}[SQL] 成功，返回 {len(data)} 行（截断={truncated}）")
         return {"success": True, "data": data, "columns": columns, "error": "", "truncated": truncated}
     except Exception as e:
-        logger.error(f"[SQL] 执行失败: {str(e)}")
+        logger.error(f"{fmt_trace(trace_id)}[SQL] 执行失败: {str(e)}")
         return {"success": False, "error": str(e), "data": [], "columns": [], "truncated": False}
 # ==================== Schema 提供者 ====================
 def _sample_rows(table: str):

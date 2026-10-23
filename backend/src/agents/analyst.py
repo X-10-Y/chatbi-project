@@ -6,7 +6,7 @@ import json
 from pydantic import BaseModel
 from openai import OpenAI
 from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY
-from logger import logger, log_tokens
+from logger import logger, log_tokens, fmt_trace
 TOP_N = 5
 class AnalystResult(BaseModel):
     analysis: str = ""
@@ -53,7 +53,7 @@ def summarize_results(results: list) -> tuple:
 {json.dumps(top_data, ensure_ascii=False, indent=2)}{stats_text}
 """)
     return "\n".join(summaries), failed
-def analyze(question: str, plan_reason: str, results: list) -> dict:
+def analyze(question: str, plan_reason: str, results: list, trace_id: str = None) -> dict:
     """综合所有任务结果做归因分析"""
     summaries, failed = summarize_results(results)
     if not summaries:
@@ -76,19 +76,19 @@ def analyze(question: str, plan_reason: str, results: list) -> dict:
 5. 如果结果超过 5 行，摘要里会提供"全部 N 行的数值统计"。你必须引用这些全局统计数字（总和、均值、最大、最小），不要只根据展示的前 5 行下结论。如果需要提到"最大/最高"的项，检查前 5 行里有没有；如果没有，明确说"完整排名未展示，仅展示前 5 行"
 6. 如果数据不足以回答，明确说明缺什么
 请输出分析结论（中文，200-600字）："""
-    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+    client = OpenAI(api_key=LLM_MODEL, base_url=LLM_BASE_URL)
     resp = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3,
         max_tokens=800
     )
-    log_tokens("Analyst", resp)
+    log_tokens("Analyst", resp, trace_id=trace_id)
     analysis = resp.choices[0].message.content.strip()
-    logger.info(f"[Analyst] 分析完成，长度 {len(analysis)} 字")
+    logger.info(f"{fmt_trace(trace_id)}[Analyst] 分析完成，长度 {len(analysis)} 字")
     warning = ""
     if failed:
         warning = f"以下维度因查询失败未纳入分析：{', '.join(failed)}"
-        logger.warning(f"[Analyst] {warning}")
+        logger.warning(f"{fmt_trace(trace_id)}[Analyst] {warning}")
     result = AnalystResult(analysis=analysis, warning=warning)
     return result.model_dump()
