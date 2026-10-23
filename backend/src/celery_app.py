@@ -49,15 +49,18 @@ def _load_task(task_id: str) -> dict:
         return None
 # ==================== 任务定义 ====================
 @celery_app.task(bind=True, name="chatbi.run_analysis")
-def _run_task(self, task_id: str, question: str):
+def _run_task(self, task_id: str, question: str, trace_id: str = None):
     from agents.orchestrator import run
-    from logger import logger
+    from logger import logger, fmt_trace
     task = _load_task(task_id) or {}
+    # 兼容旧版本投递的任务（args 里没有 trace_id 时从任务记录里补）
+    trace_id = trace_id or task.get("trace_id")
     task["status"] = "running"
     _save_task(task_id, task)
     start = time.time()
+    logger.info(f"[API] {fmt_trace(trace_id)}异步任务 {task_id} 开始: {question}")
     try:
-        result = run(question)
+        result = run(question, trace_id=trace_id)
         task["status"] = "done"
         task["finished_at"] = time.time()
         created_at = task.get("created_at", start)
@@ -71,9 +74,9 @@ def _run_task(self, task_id: str, question: str):
             "elapsed": round(time.time() - start, 2)
         }
         _save_task(task_id, task)
-        logger.info(f"[API] 异步任务 {task_id} 完成")
+        logger.info(f"[API] {fmt_trace(trace_id)}异步任务 {task_id} 完成")
     except Exception as e:
         task["status"] = "failed"
         task["error"] = str(e)
         _save_task(task_id, task)
-        logger.error(f"[API] 异步任务 {task_id} 失败: {e}")
+        logger.error(f"[API] {fmt_trace(trace_id)}异步任务 {task_id} 失败: {e}")

@@ -14,7 +14,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from logger import logger
+from logger import logger, fmt_trace
 from fastapi import File, UploadFile
 from tools.data_loader import load_file
 from fastapi.responses import StreamingResponse
@@ -120,21 +120,24 @@ def chatbi_stream(req: AskRequest):
 def chatbi_async(req: AskRequest):
     """异步分析：立即返回 task_id，丢进 Celery 队列"""
     task_id = str(uuid.uuid4())
+    trace_id = uuid.uuid4().hex[:8]
     _save_task(task_id, {
         "status": "pending",
         "question": req.question,
         "result": None,
         "error": None,
+        "trace_id": trace_id,
         "created_at": time.time()
     })
     try:
-        celery_app.send_task("chatbi.run_analysis", args=[task_id, req.question])
+        # trace_id 跨进程无法靠 contextvars 传递，只能作为任务参数显式带过去
+        celery_app.send_task("chatbi.run_analysis", args=[task_id, req.question, trace_id])
     except Exception as e:
         import traceback
-        logger.error(f"[API] Celery 投递失败: {type(e).__name__}: {e}")
+        logger.error(f"[API] {fmt_trace(trace_id)}Celery 投递失败: {type(e).__name__}: {e}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Celery 投递失败: {type(e).__name__}: {e}")
-    logger.info(f"[API] 异步请求 {task_id}: {req.question}")
+    logger.info(f"[API] {fmt_trace(trace_id)}异步请求 {task_id}: {req.question}")
     return AsyncResponse(task_id=task_id, status="pending")
 @app.get("/chatbi/status/{task_id}", response_model=StatusResponse)
 def chatbi_status(task_id: str):
