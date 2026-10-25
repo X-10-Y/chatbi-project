@@ -76,7 +76,7 @@ def analyze(question: str, plan_reason: str, results: list, trace_id: str = None
 5. 如果结果超过 5 行，摘要里会提供"全部 N 行的数值统计"。你必须引用这些全局统计数字（总和、均值、最大、最小），不要只根据展示的前 5 行下结论。如果需要提到"最大/最高"的项，检查前 5 行里有没有；如果没有，明确说"完整排名未展示，仅展示前 5 行"
 6. 如果数据不足以回答，明确说明缺什么
 请输出分析结论（中文，200-600字）："""
-    client = OpenAI(api_key=LLM_MODEL, base_url=LLM_BASE_URL)
+    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
     resp = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "user", "content": prompt}],
