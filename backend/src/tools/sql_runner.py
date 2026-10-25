@@ -3,6 +3,8 @@ SQL 执行器 + 安全防火墙
 支持 SQLite / MySQL 双后端，通过 config.DB_TYPE 切换
 """
 import re
+import datetime
+from decimal import Decimal
 from sqlalchemy import create_engine, text, inspect
 from config import DB_PATH, MYSQL_URL, DB_TYPE, MAX_RESULT_ROWS
 from logger import logger, fmt_trace
@@ -62,6 +64,13 @@ def is_safe_sql(sql: str):
         return False, "只允许单条 SQL 语句"
     return True, ""
 # ==================== 统一执行入口 ====================
+def _json_safe(value):
+    """把 MySQL 返回的 Decimal / 日期类型转成可 JSON 序列化的值"""
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
+        return value.isoformat()
+    return value
 def run_sql(sql: str, max_rows: int = None, trace_id: str = None) -> dict:
     """执行只读 SQL，最多返回 max_rows 行（在数据库侧用 LIMIT 限制，避免全量拉取）
     MySQL 下额外设置 statement timeout（毫秒），避免慢查询长期占用连接"""
@@ -91,7 +100,7 @@ def run_sql(sql: str, max_rows: int = None, trace_id: str = None) -> dict:
             columns = list(result.keys())
             rows = result.fetchmany(max_rows + 1)
         truncated = len(rows) > max_rows
-        data = [dict(zip(columns, row)) for row in rows[:max_rows]]
+        data = [{k: _json_safe(v) for k, v in zip(columns, row)} for row in rows[:max_rows]]
         logger.info(f"{fmt_trace(trace_id)}[SQL] 成功，返回 {len(data)} 行（截断={truncated}）")
         return {"success": True, "data": data, "columns": columns, "error": "", "truncated": truncated}
     except Exception as e:
