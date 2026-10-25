@@ -1,11 +1,9 @@
 fastapi
 uvicorn
 python-multipart
-langgraph
 openai
 python-dotenv
 pandas
-matplotlib
 streamlit
 requests
 pydantic
