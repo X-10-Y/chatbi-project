@@ -5,8 +5,7 @@ Orchestrator：多智能体编排器
 """
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from openai import OpenAI
-from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY
+from config import LLM_MODEL, get_llm_client
 from agents.planner import plan
 from agents.executor import execute
 from agents.analyst import analyze
@@ -78,7 +77,7 @@ def synthesize(task, dep_results: dict, trace_id: str = None) -> dict:
 3. 综合多个维度，不要单独罗列
 4. 如果数据不足以回答，明确说明
 分析结论："""
-    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+    client = get_llm_client()
     resp = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "user", "content": prompt}],

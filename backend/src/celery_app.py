@@ -24,6 +24,10 @@ celery_app.conf.update(
     timezone="Asia/Shanghai",
     enable_utc=True,
     task_track_started=True,
+    # 单任务软/硬超时，避免 worker 卡死时任务永远停在 running
+    # 注意：时间限制依赖 SIGUSR1，Windows 下不生效，仅 Linux 生产环境有效
+    task_soft_time_limit=300,
+    task_time_limit=360,
 )
 # ==================== 任务状态 Redis 辅助 ====================
 TASK_PREFIX = "chatbi:task:"
@@ -48,7 +52,14 @@ def _load_task(task_id: str) -> dict:
         logger.error(f"[Task] 读取失败: {e}")
         return None
 # ==================== 任务定义 ====================
-@celery_app.task(bind=True, name="chatbi.run_analysis")
+@celery_app.task(
+    bind=True,
+    name="chatbi.run_analysis",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_jitter=True,
+    max_retries=2
+)
 def _run_task(self, task_id: str, question: str, trace_id: str = None):
     from agents.orchestrator import run
     from logger import logger, fmt_trace
@@ -80,3 +91,5 @@ def _run_task(self, task_id: str, question: str, trace_id: str = None):
         task["error"] = str(e)
         _save_task(task_id, task)
         logger.error(f"[API] {fmt_trace(trace_id)}异步任务 {task_id} 失败: {e}")
+        # 抛出以触发 autoretry（最多 2 次，指数退避）
+        raise

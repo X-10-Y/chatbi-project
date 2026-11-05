@@ -3,8 +3,7 @@
 比如 "那上个月呢" → "上个月销售额是多少"
 只在检测到指代词时才调 LLM，省一次调用
 """
-from openai import OpenAI
-from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY
+from config import LLM_MODEL, get_llm_client
 from logger import logger, log_tokens, fmt_trace
 REFERENCE_WORDS = [
     "那", "这个", "那个", "它", "该", "上述", "前面", "刚才",
@@ -40,7 +39,7 @@ def rewrite_query(question: str, history: list, trace_id: str = None) -> str:
 3. 只输出改写后的问题，不要任何解释
 4. 如果无法判断指代对象，直接输出原问题
 改写后的问题："""
-    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+    client = get_llm_client()
     resp = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "user", "content": prompt}],

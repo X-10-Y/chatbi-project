@@ -2,8 +2,7 @@
 Schema Router：从所有表里选出和问题相关的表
 避免把全量 schema 塞给 SQL 生成，省 token 且提高准确率
 """
-from openai import OpenAI
-from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY
+from config import LLM_MODEL, get_llm_client
 from tools.sql_runner import get_table_summaries
 from logger import logger, log_tokens, fmt_trace
 def select_tables(question: str, trace_id: str = None) -> list:
@@ -20,7 +19,7 @@ def select_tables(question: str, trace_id: str = None) -> list:
 3. 如果判断不了，输出所有表名
 4. 只输出表名，不要任何其他文字
 相关表："""
-    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+    client = get_llm_client()
     resp = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "user", "content": prompt}],

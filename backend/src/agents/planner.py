@@ -4,8 +4,7 @@ Planner Agent：任务拆解
 """
 from typing import List
 from pydantic import BaseModel, ValidationError
-from openai import OpenAI
-from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY
+from config import LLM_MODEL, MAX_PLAN_TASKS, get_llm_client
 from logger import logger, log_tokens, fmt_trace
 from tools.sql_runner import get_db_schema_light
 # ==================== Pydantic 模型 ====================
@@ -90,7 +89,7 @@ def plan(question: str, trace_id: str = None) -> Plan:
 - 任务描述用中文
 用户问题：{question}
 只输出 JSON，不要其他内容："""
-    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+    client = get_llm_client()
     resp = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "user", "content": prompt}],
@@ -103,6 +102,17 @@ def plan(question: str, trace_id: str = None) -> Plan:
     cleaned = clean_json(raw)
     try:
         plan_result = Plan.model_validate_json(cleaned)
+        # 任务数上限：防止一次提问被拆成十几个子任务，把模型调用成本打穿
+        if len(plan_result.tasks) > MAX_PLAN_TASKS:
+            logger.warning(
+                f"{fmt_trace(trace_id)}[Planner] 拆出 {len(plan_result.tasks)} 个任务，"
+                f"超过上限 {MAX_PLAN_TASKS}，降级为单任务"
+            )
+            return Plan(
+                is_complex=False,
+                reason=f"拆解任务数超过上限（{MAX_PLAN_TASKS}），降级为单任务",
+                tasks=[Task(id=1, description=question)]
+            )
         logger.info(f"{fmt_trace(trace_id)}[Planner] 拆解完成: is_complex={plan_result.is_complex}, tasks={len(plan_result.tasks)}")
         return plan_result
     except Exception as e:

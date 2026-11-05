@@ -4,8 +4,7 @@ Critic Agent：质检员
 """
 import json
 from pydantic import BaseModel
-from openai import OpenAI
-from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY
+from config import LLM_MODEL, get_llm_client
 from logger import logger, log_tokens, fmt_trace
 class CriticResult(BaseModel):
     pass_: bool = True
@@ -38,7 +37,7 @@ def check_result(question: str, sql: str, data: list, columns: list, trace_id: s
 只输出 JSON，不要其他内容：
 {{"pass": true 或 false, "reason": "不通过时说明原因，通过时留空"}}
 """
-    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+    client = get_llm_client()
     resp = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "user", "content": prompt}],

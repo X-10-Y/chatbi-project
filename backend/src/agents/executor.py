@@ -1,11 +1,10 @@
 """
 Executor Agent：生成 SQL 并执行
 """
-from openai import OpenAI
 from logger import logger, log_tokens, fmt_trace
 from tools.sql_runner import run_sql, get_db_schema
 from agents.critic import check_result
-from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY, MAX_SQL_RETRY, MAX_CRITIC_RETRY
+from config import LLM_MODEL, MAX_SQL_RETRY, MAX_CRITIC_RETRY, get_llm_client
 # ==================== SQL 清洗 ====================
 def clean_sql(raw: str) -> str:
     raw = raw.strip()
@@ -57,7 +56,7 @@ def generate_sql(question: str, context: str = "", trace_id: str = None) -> str:
 {rules}
 用户问题：{question}
 SQL："""
-    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+    client = get_llm_client()
     resp = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "user", "content": prompt}],
@@ -85,7 +84,7 @@ def generate_sql_with_feedback(question: str, failed_sql: str, error: str, trace
 请分析错误原因，重新生成正确的 SQL。
 {rules}
 正确的 SQL："""
-    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+    client = get_llm_client()
     resp = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "user", "content": prompt}],
@@ -113,7 +112,7 @@ def generate_sql_with_critic_feedback(question: str, failed_sql: str, critic_rea
 请根据反馈重新生成 SQL。
 {rules}
 正确的 SQL："""
-    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+    client = get_llm_client()
     resp = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "user", "content": prompt}],
