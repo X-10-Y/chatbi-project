@@ -95,7 +95,8 @@ Z-ChatBI/
 │   │   ├── sql_runner.py      # SQL 执行与只读防火墙
 │   │   ├── data_loader.py     # CSV/Excel 清洗入库
 │   │   ├── cache.py           # Redis 结果缓存
-│   │   └── session.py         # 会话历史
+│   │   ├── session.py         # 会话历史
+│   │   └── audit.py           # 查询审计 + 判错反馈落盘
 │   ├── db/import_data.py      # Olist 数据集清洗入库脚本
 │   └── tests/evaluate.py      # 评测脚本
 ├── frontend/app.py            # Streamlit 前端
@@ -202,6 +203,26 @@ curl http://127.0.0.1:8001/chatbi/status/{task_id}
 | POST | `/chatbi/async` | 提交异步任务，返回 task_id |
 | GET | `/chatbi/status/{task_id}` | 查询异步任务状态（pending/running/done/failed） |
 | POST | `/upload_data` | 上传 CSV/Excel，自动建表导入 |
+| POST | `/feedback` | 判错反馈（口径不对 / 答非所问 / SQL 有误等），写入 `data/feedback/feedback.jsonl` |
+| GET | `/audit/queries?limit=20` | 最近的查询审计（倒序），用于复盘 bad case |
+
+## 审计与反馈
+
+每次查询（同步 / 流式 / 异步任务）都会向 `data/audit/queries.jsonl` 追加一条记录：
+
+- **问了什么**：`trace_id`、`session_id`、`client_ip`、原始问题、改写后问题
+- **跑了什么**：每个子任务的 SQL、成功与否、返回行数、SQL 重试次数、Critic 重写次数、错误信息
+- **代价多少**：是否缓存命中、总耗时、任务数、执行层数
+
+前端每条结论下方有「这条答得不对？」入口：选择「口径不对 / 答非所问 / SQL 有误 / 数据不对 / 其他」并补充说明，写入 `data/feedback/feedback.jsonl` 并返回反馈编号。凭响应里的 `trace_id` 可以回查对应的审计记录，形成「查询 → 发现 bad case → 标注 → 回归」的闭环。
+
+```bash
+curl -X POST http://127.0.0.1:8001/feedback \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Q4销售额是多少","reason_type":"口径不对","note":"应为含运费口径","trace_id":"a1b2c3d4"}'
+```
+
+`data/` 已在 `.gitignore` 中忽略。审计写入失败不影响主流程，只记录错误日志。
 
 ## 评测
 
@@ -219,6 +240,7 @@ python tests/evaluate.py
 - **SQL 防火墙仍有边界**：已用 sqlglot 做 AST 校验（仅单语句、仅 SELECT/UNION），并拦截 `INTO OUTFILE`、`INFORMATION_SCHEMA` 等模式；未安装 sqlglot 时退回关键字黑名单 + 多语句拦截。生产环境仍应叠加只读账号、只读副本和查询超时。
 - **未设置查询超时**：已把 `LIMIT` 下推到数据库侧并用 `fetchmany` 限制拉取行数，但慢查询仍可能长期占用连接，建议在连接层设置 statement timeout。
 - **会话与任务无鉴权、无租户隔离**：当前为单机演示形态，未做登录、权限和多租户。
+- **审计与反馈为本地 JSONL**：单文件追加写，无轮转、无索引，数据量大后读取效率下降；多实例部署时各写各的，生产环境应改为集中存储，并对问题与 SQL 内容做脱敏和保留期管理。
 - **异步任务无心跳与超时**：Worker 崩溃后任务可能长时间停留在 running。
 
 ## Roadmap

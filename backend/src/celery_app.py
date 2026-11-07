@@ -63,6 +63,7 @@ def _load_task(task_id: str) -> dict:
 def _run_task(self, task_id: str, question: str, trace_id: str = None):
     from agents.orchestrator import run
     from logger import logger, fmt_trace
+    from tools.audit import record_query, summarize_results
     task = _load_task(task_id) or {}
     # 兼容旧版本投递的任务（args 里没有 trace_id 时从任务记录里补）
     trace_id = trace_id or task.get("trace_id")
@@ -85,11 +86,25 @@ def _run_task(self, task_id: str, question: str, trace_id: str = None):
             "elapsed": round(time.time() - start, 2)
         }
         _save_task(task_id, task)
+        # Worker 进程内写审计，trace_id 与接口返回一致，便于跨进程复盘
+        record_query(
+            trace_id=trace_id or "", question=question, effective_question=question,
+            session_id="", cache_hit=False, success=True,
+            elapsed=task["elapsed"], task_count=result["task_count"], layers=result["layers"],
+            sqls=summarize_results(result["results"]),
+            client_ip=task.get("client_ip", "")
+        )
         logger.info(f"[API] {fmt_trace(trace_id)}异步任务 {task_id} 完成")
     except Exception as e:
         task["status"] = "failed"
         task["error"] = str(e)
         _save_task(task_id, task)
+        record_query(
+            trace_id=trace_id or "", question=question, effective_question=question,
+            session_id="", cache_hit=False, success=False,
+            elapsed=time.time() - start, client_ip=task.get("client_ip", ""),
+            error=f"{type(e).__name__}: {e}"
+        )
         logger.error(f"[API] {fmt_trace(trace_id)}异步任务 {task_id} 失败: {e}")
         # 抛出以触发 autoretry（最多 2 次，指数退避）
         raise
